@@ -1,0 +1,27 @@
+<%- include('../partials/header') %>
+
+<h2 class="mb-4">Manage Categories</h2>
+
+<form action="/admin/categories" method="POST" class="d-flex gap-2 mb-4">
+  <input type="text" name="name" class="form-control" placeholder="New category name" required>
+  <button type="submit" class="btn btn-primary">Add</button>
+</form>
+
+<table class="table">
+  <thead><tr><th>Name</th><th>Slug</th><th></th></tr></thead>
+  <tbody>
+    <% categories.forEach(cat => { %>
+      <tr>
+        <td><%= cat.name %></td>
+        <td><%= cat.slug %></td>
+        <td>
+          <form action="/admin/categories/<%= cat.id %>/delete" method="POST" onsubmit="return confirm('Delete this category?');">
+            <button class="btn btn-sm btn-outline-danger" type="submit">Delete</button>
+          </form>
+        </td>
+      </tr>
+    <% }) %>
+  </tbody>
+</table>
+
+<%- include('../partials/footer') %>

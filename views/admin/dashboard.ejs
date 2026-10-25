@@ -1,0 +1,58 @@
+<%- include('../partials/header') %>
+
+<h2 class="mb-4">Admin Dashboard</h2>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-3">
+    <div class="card text-center p-3">
+      <h6>Total Products</h6>
+      <h3><%= stats.totalProducts %></h3>
+      <a href="/admin/products">Manage</a>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card text-center p-3">
+      <h6>Total Orders</h6>
+      <h3><%= stats.totalOrders %></h3>
+      <a href="/admin/orders">Manage</a>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card text-center p-3">
+      <h6>Customers</h6>
+      <h3><%= stats.totalUsers %></h3>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card text-center p-3">
+      <h6>Revenue</h6>
+      <h3>$<%= Number(stats.revenue).toFixed(2) %></h3>
+    </div>
+  </div>
+</div>
+
+<div class="d-flex gap-2 mb-4">
+  <a href="/admin/products" class="btn btn-primary">Manage Products</a>
+  <a href="/admin/categories" class="btn btn-secondary">Manage Categories</a>
+  <a href="/admin/orders" class="btn btn-dark">Manage Orders</a>
+</div>
+
+<h5>Recent Orders</h5>
+<table class="table">
+  <thead>
+    <tr><th>#</th><th>Customer</th><th>Total</th><th>Status</th><th>Date</th></tr>
+  </thead>
+  <tbody>
+    <% recentOrders.forEach(o => { %>
+      <tr>
+        <td>#<%= o.id %></td>
+        <td><%= o.customer_name %></td>
+        <td>$<%= Number(o.total_amount).toFixed(2) %></td>
+        <td><span class="badge bg-secondary"><%= o.status %></span></td>
+        <td><%= new Date(o.created_at).toLocaleDateString() %></td>
+      </tr>
+    <% }) %>
+  </tbody>
+</table>
+
+<%- include('../partials/footer') %>

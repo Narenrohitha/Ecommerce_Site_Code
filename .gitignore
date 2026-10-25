@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment — NEVER commit
+.env
+.env.*
+!.env.example
+
+# Uploads — user content, not source
+public/uploads/*
+!public/uploads/.gitkeep
+
+# Logs
+logs/
+*.log
+
+# PM2
+.pm2/
+ecosystem.config.js.bak
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Build artifacts
+dist/
+build/
+coverage/
+
+# MySQL dumps
+*.sql.gz
+*.dump

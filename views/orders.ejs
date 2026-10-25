@@ -1,0 +1,32 @@
+<%- include('partials/header') %>
+
+<h2 class="mb-4">My Orders</h2>
+
+<% if (orders.length === 0) { %>
+  <p class="text-muted">You haven't placed any orders yet.</p>
+<% } else { %>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Order #</th>
+        <th>Date</th>
+        <th>Total</th>
+        <th>Status</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <% orders.forEach(o => { %>
+        <tr>
+          <td>#<%= o.id %></td>
+          <td><%= new Date(o.created_at).toLocaleDateString() %></td>
+          <td>$<%= Number(o.total_amount).toFixed(2) %></td>
+          <td><span class="badge bg-secondary"><%= o.status %></span></td>
+          <td><a href="/orders/<%= o.id %>" class="btn btn-sm btn-outline-primary">View</a></td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+<% } %>
+
+<%- include('partials/footer') %>

@@ -1,0 +1,38 @@
+<%- include('partials/header') %>
+
+<div class="p-5 mb-4 bg-primary text-white rounded-3">
+  <h1 class="display-6 fw-bold">Welcome to MyShop</h1>
+  <p class="col-md-8 fs-5">Quality products, fast delivery, pay cash on delivery — no online payment needed.</p>
+  <a href="/products" class="btn btn-light btn-lg">Shop Now</a>
+</div>
+
+<h3 class="mb-3">Shop by Category</h3>
+<div class="d-flex flex-wrap gap-2 mb-4">
+  <% categories.forEach(cat => { %>
+    <a href="/products?category=<%= cat.slug %>" class="btn btn-outline-secondary btn-sm"><%= cat.name %></a>
+  <% }) %>
+</div>
+
+<h3 class="mb-3">Latest Products</h3>
+<div class="row row-cols-1 row-cols-md-4 g-4">
+  <% if (products.length === 0) { %>
+    <p class="text-muted">No products available yet.</p>
+  <% } %>
+  <% products.forEach(p => { %>
+    <div class="col">
+      <div class="card h-100 product-card">
+        <img src="<%= p.image || 'https://via.placeholder.com/300x200?text=No+Image' %>" class="card-img-top" alt="<%= p.name %>">
+        <div class="card-body">
+          <h5 class="card-title"><%= p.name %></h5>
+          <p class="card-text text-muted small"><%= p.category_name || 'Uncategorized' %></p>
+          <p class="fw-bold">$<%= Number(p.price).toFixed(2) %></p>
+        </div>
+        <div class="card-footer bg-white border-0">
+          <a href="/products/<%= p.slug %>" class="btn btn-primary w-100">View Details</a>
+        </div>
+      </div>
+    </div>
+  <% }) %>
+</div>
+
+<%- include('partials/footer') %>

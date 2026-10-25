@@ -1,0 +1,32 @@
+<%- include('../partials/header') %>
+
+<h2 class="mb-4">Manage Orders</h2>
+
+<table class="table align-middle">
+  <thead>
+    <tr><th>#</th><th>Customer</th><th>Total</th><th>Status</th><th>Date</th><th>Update Status</th></tr>
+  </thead>
+  <tbody>
+    <% orders.forEach(o => { %>
+      <tr>
+        <td>#<%= o.id %></td>
+        <td><%= o.customer_name %><br><small class="text-muted"><%= o.customer_email %></small></td>
+        <td>$<%= Number(o.total_amount).toFixed(2) %></td>
+        <td><span class="badge bg-secondary"><%= o.status %></span></td>
+        <td><%= new Date(o.created_at).toLocaleDateString() %></td>
+        <td>
+          <form action="/admin/orders/<%= o.id %>/status" method="POST" class="d-flex gap-1">
+            <select name="status" class="form-select form-select-sm">
+              <% ['pending','processing','shipped','delivered','cancelled'].forEach(s => { %>
+                <option value="<%= s %>" <%= o.status === s ? 'selected' : '' %>><%= s %></option>
+              <% }) %>
+            </select>
+            <button class="btn btn-sm btn-outline-primary" type="submit">Update</button>
+          </form>
+        </td>
+      </tr>
+    <% }) %>
+  </tbody>
+</table>
+
+<%- include('../partials/footer') %>

@@ -1,0 +1,48 @@
+<%- include('partials/header') %>
+
+<div class="row">
+  <div class="col-md-3">
+    <h5>Categories</h5>
+    <div class="list-group mb-4">
+      <a href="/products" class="list-group-item list-group-item-action <%= selectedCategory === '' ? 'active' : '' %>">All</a>
+      <% categories.forEach(cat => { %>
+        <a href="/products?category=<%= cat.slug %>" class="list-group-item list-group-item-action <%= selectedCategory === cat.slug ? 'active' : '' %>">
+          <%= cat.name %>
+        </a>
+      <% }) %>
+    </div>
+  </div>
+
+  <div class="col-md-9">
+    <h3 class="mb-3">
+      <% if (searchQuery) { %>Search results for "<%= searchQuery %>"<% } else { %>All Products<% } %>
+    </h3>
+    <div class="row row-cols-1 row-cols-md-3 g-4">
+      <% if (products.length === 0) { %>
+        <p class="text-muted">No products found.</p>
+      <% } %>
+      <% products.forEach(p => { %>
+        <div class="col">
+          <div class="card h-100 product-card">
+            <img src="<%= p.image || 'https://via.placeholder.com/300x200?text=No+Image' %>" class="card-img-top" alt="<%= p.name %>">
+            <div class="card-body">
+              <h5 class="card-title"><%= p.name %></h5>
+              <p class="card-text text-muted small"><%= p.category_name || 'Uncategorized' %></p>
+              <p class="fw-bold">$<%= Number(p.price).toFixed(2) %></p>
+              <% if (p.stock <= 0) { %>
+                <span class="badge bg-danger">Out of stock</span>
+              <% } else if (p.stock <= 5) { %>
+                <span class="badge bg-warning text-dark">Only <%= p.stock %> left</span>
+              <% } %>
+            </div>
+            <div class="card-footer bg-white border-0">
+              <a href="/products/<%= p.slug %>" class="btn btn-primary w-100">View Details</a>
+            </div>
+          </div>
+        </div>
+      <% }) %>
+    </div>
+  </div>
+</div>
+
+<%- include('partials/footer') %>
