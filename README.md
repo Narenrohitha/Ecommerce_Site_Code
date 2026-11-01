@@ -1,160 +1,324 @@
-# MyShop — E-Commerce Website (No Payment Gateway / Cash on Delivery)
+# Complete Deployment Guide — MyShop E-Commerce
 
-A full-stack e-commerce site built with **Node.js, Express, MySQL, and EJS**.
-No payment gateway is integrated — checkout is **Cash on Delivery (COD)** only.
+## 🔎 Step 0 — AWS Security Group (do this first)
 
-## Features
-- Customer: register/login, browse products by category, search, product detail,
-  cart, checkout (COD), order history
-- Admin panel: dashboard with stats, product CRUD with image upload, category CRUD,
-  order status management
-- MySQL-backed sessions (persist across server restarts)
-- Stock is checked and decremented on order placement (using a DB transaction)
+EC2 Console → your instance → **Security** tab → Security Group → **Inbound rules** → **Edit**:
 
-## Tech Stack
-- Node.js + Express
-- MySQL (via `mysql2`)
-- EJS templates + Bootstrap 5 (CDN)
-- express-session + express-mysql-session
-- bcryptjs for password hashing
-- multer for product image uploads
+| Type  | Port | Source         |
+|-------|------|----------------|
+| SSH   | 22   | My IP          |
+| HTTP  | 80   | 0.0.0.0/0      |
+| HTTPS | 443  | 0.0.0.0/0      |
+
+Save. **Do NOT open 3000 or 3306.**
 
 ---
 
-## 1. Local project structure
+## 🖥️ Step 1 — SSH In and Confirm Public IP
 
+```bash
+ssh -i ~/Downloads/<your-key>.pem ubuntu@<EC2_PUBLIC_IP>
+
+# On the server
+curl -s ifconfig.me; echo
 ```
-ecommerce-app/
-├── package.json
-├── .env.example
-├── server.js
-├── config/db.js
-├── database/schema.sql
-├── middleware/auth.js
-├── routes/ (auth, products, cart, orders, admin)
-├── public/ (css, uploads)
-└── views/ (EJS templates, including views/admin/*)
-```
+
+Note the output — this is your `<EC2_PUBLIC_IP>` for every step below.
 
 ---
 
-## 2. Deploying on a fresh AWS EC2 Ubuntu server
+## 📦 Step 2 — Install Node.js 20, MySQL, Nginx, Build Tools
 
-These steps assume **Ubuntu 22.04 / 24.04** on an EC2 instance, and that you already
-have SSH access (`ssh -i your-key.pem ubuntu@your-ec2-ip`).
-
-### Step 1 — Launch & secure the EC2 instance
-1. Launch an Ubuntu EC2 instance (t2.small/t3.small or larger recommended).
-2. In the instance's **Security Group**, open these inbound ports:
-   - `22` (SSH) — your IP only
-   - `80` (HTTP) — 0.0.0.0/0
-   - `443` (HTTPS) — 0.0.0.0/0 (if you'll add SSL)
-   - Do **not** expose port `3000` or `3306` publicly.
-
-### Step 2 — Update the server & install Node.js
 ```bash
 sudo apt update && sudo apt upgrade -y
 
-# Install Node.js 20.x LTS
+# Node.js 20 LTS
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt install -y nodejs
-node -v
-npm -v
+node -v      # v20.x.x
+npm -v       # 10.x.x
+
+# MySQL
+sudo apt install -y mysql-server
+sudo systemctl enable --now mysql
+
+# Nginx
+sudo apt install -y nginx
+sudo systemctl enable --now nginx
+
+# Build tools for native modules (bcrypt etc.)
+sudo apt install -y build-essential python3
+
+# Confirm
+mysql --version
+nginx -v
+systemctl is-active mysql nginx    # both "active"
 ```
 
-### Step 3 — Install and secure MySQL
-```bash
-sudo apt install -y mysql-server
-sudo systemctl enable mysql
-sudo systemctl start mysql
+---
 
-# Secure the installation (set root password, remove test DB, etc.)
+## 🗄️ Step 3 — Secure MySQL
+
+```bash
 sudo mysql_secure_installation
 ```
 
-Create the application database and a dedicated MySQL user:
+Answers:
+- VALIDATE PASSWORD COMPONENT: **Y**
+- Password policy: **2** (STRONG)
+- Set root password — **choose your own strong password, save it in a password manager**
+- Remove anonymous users: **Y**
+- Disallow root login remotely: **Y**
+- Remove test database: **Y**
+- Reload privilege tables: **Y**
+
+---
+
+## 🗄️ Step 4 — Create Database and User
+
 ```bash
-sudo mysql -u root -p
+sudo mysql
 ```
-Inside the MySQL prompt:
+
+Inside the MySQL prompt (**choose your own strong password**):
+
 ```sql
-CREATE DATABASE ecommerce_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER 'ecommerce_user'@'localhost' IDENTIFIED BY 'YOUR_STRONG_PASSWORD';
+CREATE DATABASE IF NOT EXISTS ecommerce_db
+  CHARACTER SET utf8mb4
+  COLLATE utf8mb4_unicode_ci;
+
+CREATE USER IF NOT EXISTS 'ecommerce_user'@'localhost'
+  IDENTIFIED BY '<SET_A_STRONG_PASSWORD_HERE>';
+
 GRANT ALL PRIVILEGES ON ecommerce_db.* TO 'ecommerce_user'@'localhost';
 FLUSH PRIVILEGES;
 EXIT;
 ```
 
-### Step 4 — Upload the project to the server
-From your local machine (where you extracted this project):
-```bash
-scp -i your-key.pem -r ecommerce-app ubuntu@your-ec2-ip:/home/ubuntu/
-```
-Or use `git clone` if you push this project to your own repository.
+Test:
 
-### Step 5 — Import the database schema
 ```bash
-cd /home/ubuntu/ecommerce-app
+mysql -u ecommerce_user -p ecommerce_db -e "SHOW TABLES;"
+```
+
+(Empty result is fine — tables come in the next step.)
+
+---
+
+## 📤 Step 5 — Get the Project onto the Server
+
+**Preferred — clone from GitHub:**
+
+```bash
+cd /home/ubuntu
+git clone https://github.com/Narenrohitha/Ecommerce_Site_Code.git Ecommerce_Site_Code
+cd Ecommerce_Site_Code
+ls -la
+```
+
+You should see: `README.md`, `config/`, `database/`, `middleware/`, `package.json`, `public/`, `routes/`, `server.js`, `views/`.
+
+**Alternative — scp from your laptop:**
+
+```bash
+scp -i ~/Downloads/<your-key>.pem -r ~/Downloads/Ecommerce_Site_Code ubuntu@<EC2_PUBLIC_IP>:/home/ubuntu/
+```
+
+---
+
+## 🗃️ Step 6 — Load the Database Schema
+
+```bash
+cd /home/ubuntu/Ecommerce_Site_Code
 mysql -u ecommerce_user -p ecommerce_db < database/schema.sql
 ```
 
-### Step 6 — Configure environment variables
+Verify:
+
 ```bash
+mysql -u ecommerce_user -p ecommerce_db -e "SHOW TABLES;"
+```
+
+Expected: `users`, `categories`, `products`, `orders`, `order_items`, `sessions` (and possibly `cart`).
+
+**If it errors**, paste the error — MySQL 8 sometimes needs tweaks for old `schema.sql` files.
+
+---
+
+## ⚙️ Step 7 — Create and Fill `.env`
+
+```bash
+cd /home/ubuntu/Ecommerce_Site_Code
 cp .env.example .env
 nano .env
 ```
-Fill in real values, especially:
-```
-DB_USER=ecommerce_user
-DB_PASSWORD=YOUR_STRONG_PASSWORD
-DB_NAME=ecommerce_db
-SESSION_SECRET=<generate a long random string>
-ADMIN_EMAIL=you@yourdomain.com
-ADMIN_PASSWORD=<a strong password>
-```
-The admin account in `.env` is created automatically the first time the app starts.
 
-### Step 7 — Install dependencies
+Paste, then **replace every `<…>` placeholder with a real value you generate yourself**:
+
+```env
+# Server
+NODE_ENV=production
+PORT=3000
+APP_URL=http://<EC2_PUBLIC_IP>
+
+# MySQL
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_USER=ecommerce_user
+DB_PASSWORD=<SET_A_STRONG_PASSWORD_HERE>
+DB_NAME=ecommerce_db
+
+# Session
+SESSION_SECRET=<PASTE_GENERATED_HEX_HERE>
+
+# Admin bootstrap (created on first start — change the password after first login)
+ADMIN_EMAIL=<your-admin-email>
+ADMIN_PASSWORD=<SET_A_STRONG_PASSWORD_HERE>
+ADMIN_NAME=Admin
+```
+
+Generate `SESSION_SECRET` **in a second shell** (or before opening nano):
+
 ```bash
-cd /home/ubuntu/ecommerce-app
+node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
+```
+
+Copy the output → paste after `SESSION_SECRET=`.
+
+Save: `Ctrl+O`, `Enter`, `Ctrl+X`. Then:
+
+```bash
+chmod 600 .env
+```
+
+> ⚠️ `.env` is already in `.gitignore` — never commit it.
+
+---
+
+## 📥 Step 8 — Install Dependencies
+
+```bash
+cd /home/ubuntu/Ecommerce_Site_Code
 npm install --production
 ```
 
-### Step 8 — Test run
+If `bcrypt` (or any native module) fails:
+
 ```bash
+sudo apt install -y build-essential python3
+npm install --production
+```
+
+---
+
+## 🧪 Step 9 — Test the App Manually (Do Not Skip)
+
+```bash
+cd /home/ubuntu/Ecommerce_Site_Code
 node server.js
 ```
-Visit `http://your-ec2-ip:3000` briefly to confirm it works, then stop it (Ctrl+C).
-You should be able to log in at `/login` with the admin credentials from `.env`.
 
-### Step 9 — Run the app permanently with PM2
+Expected output (something like):
+
+```
+DB connected
+Session store ready
+Server listening on port 3000
+```
+
+**In a second SSH session:**
+
 ```bash
+curl -I http://localhost:3000/
+curl http://localhost:3000/ | head -20
+```
+
+- First → `HTTP/1.1 200 OK` or `302 Found`
+- Second → HTML
+
+**If it crashed**, the error tells you exactly what's wrong:
+
+| Error | Fix |
+|-------|-----|
+| `Access denied for user 'ecommerce_user'` | Wrong `DB_PASSWORD` in `.env` |
+| `Unknown database 'ecommerce_db'` | Re-run Step 4 |
+| `Table 'ecommerce_db.users' doesn't exist` | Re-run Step 6 |
+| `Cannot find module 'xyz'` | Re-run `npm install --production` |
+| `listen EADDRINUSE` | Something else on 3000 — `sudo lsof -i :3000` |
+
+Stop the app with `Ctrl+C` in the first session.
+
+---
+
+## 🔄 Step 10 — Run With PM2
+
+```bash
+# Install PM2 globally
 sudo npm install -g pm2
-cd /home/ubuntu/ecommerce-app
+
+# Start the app
+cd /home/ubuntu/Ecommerce_Site_Code
 pm2 start server.js --name myshop
+
+# Verify
+pm2 status          # myshop should be "online"
+pm2 logs myshop --lines 30 --nostream
+
+# Persist across reboots
 pm2 save
-pm2 startup   # run the command it prints, to enable startup on reboot
-```
-Useful PM2 commands:
-```bash
-pm2 status
-pm2 logs myshop
-pm2 restart myshop
+pm2 startup
 ```
 
-### Step 10 — Install & configure Nginx as a reverse proxy
+`pm2 startup` prints a line like:
+
+```
+sudo env PATH=$PATH:/usr/bin /usr/lib/node_modules/pm2/bin/pm2 startup systemd -u ubuntu --hp /home/ubuntu
+```
+
+**Copy and run that exact line.** Then verify:
+
 ```bash
-sudo apt install -y nginx
+systemctl status pm2-ubuntu | head -5     # active (running)
+pm2 status                                 # myshop online
+```
+
+⚠️ **Rule from last time:** never run `pm2 start` in a plain shell after this. To change the app later, use `pm2 restart myshop` or `pm2 reload myshop`, then `pm2 save`.
+
+---
+
+## 🌐 Step 11 — Nginx Reverse Proxy
+
+```bash
 sudo nano /etc/nginx/sites-available/myshop
 ```
-Paste:
+
+Paste (**replace `<EC2_PUBLIC_IP>` with your actual public IP**):
+
 ```nginx
 server {
     listen 80;
-    server_name your-domain.com www.your-domain.com;   # or your EC2 public IP
+    listen [::]:80;
+    server_name <EC2_PUBLIC_IP>;
+
+    access_log /var/log/nginx/myshop-access.log;
+    error_log  /var/log/nginx/myshop-error.log;
 
     client_max_body_size 10M;
 
+    # Static assets served by Nginx directly
+    location /css/ {
+        alias /home/ubuntu/Ecommerce_Site_Code/public/css/;
+        expires 7d;
+        access_log off;
+    }
+
+    location /uploads/ {
+        alias /home/ubuntu/Ecommerce_Site_Code/public/uploads/;
+        expires 30d;
+        access_log off;
+    }
+
+    # Everything else → Node.js
     location / {
         proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
@@ -165,59 +329,130 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 60s;
     }
 }
 ```
-Enable it:
+
+Save, then enable:
+
 ```bash
-sudo ln -s /etc/nginx/sites-available/myshop /etc/nginx/sites-enabled/
 sudo rm -f /etc/nginx/sites-enabled/default
+sudo ln -sf /etc/nginx/sites-available/myshop /etc/nginx/sites-enabled/myshop
 sudo nginx -t
-sudo systemctl restart nginx
-```
-Now the site is reachable on port 80 at your domain or EC2 public IP.
-
-### Step 11 — (Recommended) Enable free HTTPS with Let's Encrypt
-Only if you have a real domain name pointed at the server:
-```bash
-sudo apt install -y certbot python3-certbot-nginx
-sudo certbot --nginx -d your-domain.com -d www.your-domain.com
-```
-Certbot edits your Nginx config automatically and sets up auto-renewal.
-
-### Step 12 — Firewall (optional, if using ufw)
-```bash
-sudo ufw allow OpenSSH
-sudo ufw allow 'Nginx Full'
-sudo ufw enable
+sudo systemctl reload nginx
 ```
 
 ---
 
-## 3. Post-deployment checklist
-- [ ] Log in to `/admin/dashboard` with the admin account from `.env`
-- [ ] Add categories at `/admin/categories`
-- [ ] Add products with images at `/admin/products/new`
-- [ ] Place a test order as a customer and confirm it appears in `/admin/orders`
-- [ ] Change `ADMIN_PASSWORD` after first login if desired, and rotate `SESSION_SECRET`
-- [ ] Set up regular MySQL backups (`mysqldump`) — see below
+## 🔥 Step 12 — UFW Firewall
 
-## 4. Backing up the database
 ```bash
-mysqldump -u ecommerce_user -p ecommerce_db > backup_$(date +%F).sql
+sudo ufw allow OpenSSH
+sudo ufw allow 'Nginx Full'
+sudo ufw --force enable
+sudo ufw status
 ```
-Consider a cron job to automate this and copy backups to S3.
 
-## 5. Updating the app later
+---
+
+## ✅ Step 13 — Test the Full Stack
+
+From the server:
+
 ```bash
-cd /home/ubuntu/ecommerce-app
-git pull            # or re-upload changed files
+curl -I http://localhost
+curl -I http://localhost/login
+```
+
+Both should return `HTTP/1.1 200 OK`.
+
+From your browser:
+
+```
+http://<EC2_PUBLIC_IP>
+```
+
+You should see the e-commerce homepage.
+
+**Admin flow test:**
+
+1. `http://<EC2_PUBLIC_IP>/login`
+2. Log in with the `ADMIN_EMAIL` / `ADMIN_PASSWORD` you set in `.env`
+3. `http://<EC2_PUBLIC_IP>/admin/dashboard` — stats appear
+4. `/admin/categories` — add a category
+5. `/admin/products/new` — add a product with image
+6. Customer flow: register → browse → add to cart → checkout (COD) → confirm order at `/admin/orders`
+
+---
+
+## 🔐 Step 14 — Verify Persistence Across Reboot
+
+```bash
+sudo reboot
+```
+
+Wait ~30 seconds, SSH back in:
+
+```bash
+pm2 status                     # myshop online
+systemctl status pm2-ubuntu    # active (running)
+curl -I http://localhost       # 200 OK
+```
+
+If all three pass, the app survives reboots.
+
+---
+
+## 🔁 Step 15 — Updating the App Later
+
+On your laptop:
+
+```bash
+cd ~/Downloads/Ecommerce_Site_Code
+git add .
+git commit -m "Describe your change"
+git push
+```
+
+On the server:
+
+```bash
+cd /home/ubuntu/Ecommerce_Site_Code
+git pull
 npm install --production
 pm2 restart myshop
 ```
 
-## 6. Notes on "no payment gateway"
-- Checkout only supports **Cash on Delivery**. `orders.payment_method` is stored as `cod`.
-- If you later want to add a real gateway (Stripe, Razorpay, PayPal, etc.), you'd add
-  a new route/integration in `routes/orders.js` and update the checkout view — this
-  build intentionally leaves that out per your request.
+---
+
+## 🩺 Troubleshooting Quick Reference
+
+**502 Bad Gateway**
+```bash
+pm2 status
+pm2 logs myshop --lines 30 --nostream
+sudo tail -20 /var/log/nginx/myshop-error.log
+```
+
+**Unstyled page (no CSS)**
+```bash
+curl -I http://<EC2_PUBLIC_IP>/css/style.css
+ls -la /home/ubuntu/Ecommerce_Site_Code/public/css/
+```
+
+**403 on uploads**
+```bash
+chmod -R 755 /home/ubuntu/Ecommerce_Site_Code/public/uploads/
+```
+
+**DB errors**
+```bash
+mysql -u ecommerce_user -p ecommerce_db -e "SHOW TABLES;"
+pm2 logs myshop --lines 50 --nostream | grep -i -E "mysql|db|error"
+```
+
+**Verify port 3000 not exposed publicly** (should time out from outside, work on localhost):
+```bash
+curl -I http://localhost:3000    # works
+```
